@@ -14,5 +14,5 @@ use App\Http\Middleware\AppMiddleware;
 |
 */
 
-Route::get('/', "App\Http\Controllers\AppController@index")
-    ->middleware(AppMiddleware::class);
+// Route::get('/', "App\Http\Controllers\AppController@index")
+//     ->middleware(AppMiddleware::class);
