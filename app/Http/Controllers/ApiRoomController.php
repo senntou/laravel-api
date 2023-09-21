@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Room;
 use Illuminate\Http\Request;
+use App\Http\Requests\StoreRoomRequest;
 
 class ApiRoomController extends Controller
 
