@@ -8,4 +8,11 @@ use Illuminate\Database\Eloquent\Model;
 class Room extends Model
 {
     use HasFactory;
+    protected $fillable = [
+        'name',
+        'password',
+        'user1',
+        'user2'
+        // Add more attributes as needed
+    ];
 }
