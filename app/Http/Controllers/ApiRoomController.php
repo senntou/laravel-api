@@ -52,9 +52,13 @@ class ApiRoomController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Room $room)
+    public function show($id)
     {
-        //
+        $room = Room::find($id);
+        return response()->json([
+            $room
+        ]);
+
     }
 
     /**
@@ -76,8 +80,9 @@ class ApiRoomController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Room $room)
+    public function destroy($id)
     {
-        //
+        $room = Room::find($id);
+        $room->delete();
     }
 }
