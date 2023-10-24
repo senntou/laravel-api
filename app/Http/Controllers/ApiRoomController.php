@@ -7,8 +7,6 @@ use Illuminate\Http\Request;
 use App\Http\Requests\StoreRoomRequest;
 
 class ApiRoomController extends Controller
-
-
 {
     /**
      * Display a listing of the resource.
@@ -42,13 +40,7 @@ class ApiRoomController extends Controller
             'room' => $room
         ], 200);
     }
-/*
-    public function store(Request $request)
-    {
-        //
-    }
-*/
-
+    
     /**
      * Display the specified resource.
      */
@@ -58,7 +50,6 @@ class ApiRoomController extends Controller
         return response()->json([
             $room
         ]);
-
     }
 
     /**

@@ -13,8 +13,6 @@ return new class extends Migration
     {
         Schema::create('rooms', function (Blueprint $table) {
             $table->id('id');
-            $table->string('name');
-            $table->string('password')->nullable();
             $table->string('user1')->nullable();
             $table->string('user2')->nullable();
         });
