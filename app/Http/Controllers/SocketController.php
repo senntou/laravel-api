@@ -4,12 +4,127 @@ use Ratchet\MessageComponentInterface;
 use Ratchet\ConnectionInterface;
 use App\Models\Room;
 
+
+// クラスを作成する
+    /*
+    クラス1 ルームクラス
+        ・メンバ
+            （ID）
+            ユーザ１のインスタンス
+            ユーザ２のインスタンス
+        ・関数
+            アクセッサ
+            ユーザーの追加（ネーム、CONN）
+            CONNからユーザー削除
+            DBの内容を変更
+
+    クラス２　ユーザクラス
+        ・メンバ
+            ユーザCONN
+            ユーザネーム
+            所属するルームクラスの参照
+        ・関数
+            アクセッサ
+            部屋に所属する
+            部屋の所属を外す
+    */
+class User{
+    private ConnectionInterface $conn;
+    private String $name;
+    private ChatRoom $chatRoom;
+
+    public function __construct(ConnectionInterface $conn,String $name){
+        $this->conn = $conn;
+        $this->name = $name;
+    }
+
+    public function getConn(){
+        return $this->conn;
+    }
+    public function getName(){
+        return $this->name;
+    }
+    public function getChatRoom(){
+        return $this->chatRoom;
+    }
+    public function enterRoom(ChatRoom $room){
+        $this->chatRoom = $room;
+    }
+    public function exitRoom(){
+        unset($this->chatRoom);
+    }
+}
+class ChatRoom{
+    private $id;
+    private $user1;
+    private $user2;
+    public function __construct(int $id){
+        $this->id = $id;
+    }
+
+    public function getId(){
+        return $this->id;
+    }
+    public function getUser1(){
+        return $this->user1;
+    }
+    public function getUser2(){
+        return $this->user2;
+    }
+
+    public function getElseUser(User $user){
+        if($this->user1->getConn() === $user->getConn()){
+            return $this->user2;
+        } else if($this->user2->getConn() === $user->getConn()){
+            return $this->user1;
+        } else {
+            echo("error : message sent, but this user is not in this room \n");
+            return null;
+        }
+    }
+
+    public function updateDataBase(){
+        $roomdb = Room::find($this->id);
+        if($this->user1 == null) $roomdb->user1 = null;
+        else $roomdb->user1 = $this->user1->getName();
+        if($this->user2 == null) $roomdb->user2 = null;
+        else $roomdb->user2 = $this->user2->getName();
+        $roomdb->save();
+    }
+
+    public function addUser(User $user){
+        if($this->user1 == null){
+            $this->user1 = $user;
+            $this->updateDataBase();
+            return FALSE;
+        }
+        if($this->user2 == null){
+            $this->user2 = $user;
+            $this->updateDataBase();
+            return FALSE;
+        }
+        return TRUE;
+    }
+    public function removeUser(User $user){
+        if($this->user1->getConn() == $user->getConn()){
+            $this->user1 = null;
+            $this->updateDataBase();
+            return FALSE;
+        }
+        if($this->user2->getConn() == $user->getConn()){
+            $this->user2 = null;
+            $this->updateDataBase();
+            return FALSE;
+        }
+        return TRUE;
+    }    
+}
+
+
 class SocketController extends Controller implements MessageComponentInterface {
     protected $clients;
-    //ルームID　ー＞　ユーザーｓ
     protected $rooms;
-    //ユーザー　ー＞　ルーム
-    protected $user;
+    protected $users;
 
     // client情報をmapで管理し、user1とuser2を紐づける（無向辺で結ぶ）
     // 変更　user同士を紐づけるのではなく、ルームIDとuserをつなぐ
@@ -17,15 +132,12 @@ class SocketController extends Controller implements MessageComponentInterface {
         $this->clients = new \SplObjectStorage;
 
         $this->rooms = array();
-        $this->user = new \SplObjectStorage;
+        $this->users = new \SplObjectStorage;
         $roomDatas = Room::all();
 
         foreach( $roomDatas as $roomData ){
-            $this->rooms[$roomData->id] = array();
-            // echo($roomData->id . "\n");
+            $this->rooms[$roomData->id] = new ChatRoom($roomData->id);
         }
-
-        // print_r($this->rooms);
 
         echo "constructed!!!\n";
     }
@@ -42,73 +154,80 @@ class SocketController extends Controller implements MessageComponentInterface {
     //      ここでデータベースにユーザーネームを追加する処理も行い、user1,2を無向辺で結ぶ
     //　メッセージ２・・・メッセージのやり取りを行う
     public function onMessage(ConnectionInterface $from, $msg) {
-
-        // echo("received a message\n");
-        // print_r($this->rooms);
-
         $msgId = substr($msg,0,1);
-
-        // データベース処理をまだ書いてないーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
         if($msgId == '0') {
             [$msgId, $roomid, $enterFlag, $name ] = explode(" ", $msg);
             $roomid = intval($roomid);
             $enterFlag = intval($enterFlag);
 
+            // ユーザー情報を登録し、入室処理を行う。
             if($enterFlag == 1){
-                // $roomsにユーザー情報を登録する。　ルームが存在しない場合、エラーを返す。
+                // ルームが存在しない場合、エラーを返す。
                 if(!isset($this->rooms[$roomid]) ) {
                     $from->send("error");
-                    echo("room no. " . $roomid . " has not found");
-                    print_r($this->rooms);
+                    echo("room no. " . $roomid . " has not found\n");
                     return ;
                 }
-
+                // ユーザーが既にどこかのルームに入っている場合、エラーを返す。
+                if( isset($this->users[$from]) && ($this->users[$from]->getChatRoom() != null)){
+                    $from->send("critical error : this user is alreadry in a room");
+                    echo("critical erroe : this user is already in a room\n");
+                    return ;
+                }
                 echo('registered user : ' . $name . "\n");
-                $this->rooms[$roomid][] = $from;
-                $this->user[$from] = $roomid;
-            } else {
-                // $roomsからユーザー情報を削除する。　存在しなければエラーを返す。
-                // 削除は正確には、新しい配列を作成することで対応している。
+                $user = new User($from,$name);
+                $this->users[$from] = $user;
 
-                $newRoom = array();
-                foreach($this->rooms[$roomid] as $user) {
-                    if($user != $from) $newRoom[] = $user;
+                if( $this->rooms[$roomid]->addUser($this->users[$from]) ){
+                    $from->send("error : room is full");
+                    echo("error : room is full\n");
+                } else {
+                    $this->users[$from]->enterRoom($this->rooms[$roomid]);
                 }
-                if(count($newRoom) - 1 != count($this->rooms[$roomid])){
-                    $from->send("error");
-                    return ;
+            } 
+            // $rooms からユーザー情報を削除する。　存在しなければエラーを返す。
+            else {
+                if($this->rooms[$roomid]->removeUser($this->users[$from])){
+                    $from->send("error : can't delete user from room");
+                    echo("error : can't delete user from room\n");
+                } else {
+                    $this->users[$from]->exitRoom();
                 }
-                $this->rooms[$roomid] = $newRoom;
-                unset($this->user[$from]);
             }
+            return ;
         }
 
         if($msgId == '1'){
             // ルームが同じ人に対してメッセージを送信する。
-            if(!isset($this->user[$from])){
-                $from->send("error");
-                echo("ok");
+            // ユーザーがルームに入っていない場合はエラーを返す
+            if( !isset($this->users[$from]) ||  $this->users[$from]->getChatRoom() == null){
+                $from->send("error : this user have not entered any room");
+                echo("error : this user have not entered any room");
                 return ;
             }
-            $roomid = $this->user[$from];
-            foreach( $this->rooms[$roomid] as $client ){
-                if($client == $from) continue;
 
-                $client->send($msg);
+            $room = $this->users[$from]->getChatRoom();
+            $target = $room->getElseUser($this->users[$from]);
+            if( $target == null ){
+                return ;
+            } else {
+                $target->getConn()->send($msg);
             }
-            echo('ok');
+            echo("message sent\n");
         }
-        // foreach ($this->clients as $client) {
-        //     $client->send($msg);
-        // }
     }
 
-    //　えっとね、ここでデータベースからの削除もいると思います
     public function onClose(ConnectionInterface $conn) {
         // The connection is closed, remove it, as we can no longer send it messages
         $this->clients->detach($conn);
 
         echo "Connection {$conn->resourceId} has disconnected\n";
+
+        //ユーザがルーム内に存在する場合、退出処理を行う。
+        if( !isset($this->users[$conn]) || $this->users[$conn]->getChatRoom() == null) return ;
+        $room = $this->users[$conn]->getChatRoom();
+        $this->users[$conn]->exitRoom();
+        $room->removeUser($this->users[$conn]);
     }
 
     public function onError(ConnectionInterface $conn, \Exception $e) {
