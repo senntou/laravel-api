@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\AppMiddleware;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ApiRoomController;
@@ -20,4 +21,5 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-Route::apiResource('rooms',ApiRoomController::class);
+Route::apiResource('rooms',ApiRoomController::class)
+    ->middleware(AppMiddleware::class);
