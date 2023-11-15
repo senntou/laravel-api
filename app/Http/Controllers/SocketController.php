@@ -107,12 +107,12 @@ class ChatRoom{
         return TRUE;
     }
     public function removeUser(User $user){
-        if($this->user1->getConn() == $user->getConn()){
+        if(isset($this->user1) && $this->user1->getConn() == $user->getConn()){
             $this->user1 = null;
             $this->updateDataBase();
             return FALSE;
         }
-        if($this->user2->getConn() == $user->getConn()){
+        if(isset($this->user2) && $this->user2->getConn() == $user->getConn()){
             $this->user2 = null;
             $this->updateDataBase();
             return FALSE;
