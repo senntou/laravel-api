@@ -45,6 +45,7 @@ class User{
         return $this->name;
     }
     public function getChatRoom(){
+        if(empty($this->chatRoom)) return null;
         return $this->chatRoom;
     }
     public function enterRoom(ChatRoom $room){
@@ -155,8 +156,11 @@ class SocketController extends Controller implements MessageComponentInterface {
     //　メッセージ２・・・メッセージのやり取りを行う
     public function onMessage(ConnectionInterface $from, $msg) {
         $msgId = substr($msg,0,1);
+        echo($msg . "\n");
         if($msgId == '0') {
-            [$msgId, $roomid, $enterFlag, $name ] = explode(" ", $msg);
+            // [$msgId, $roomid, $enterFlag, $name ] = explode(" ", $msg);
+            [$msgId, $roomid, $enterFlag] = explode(" ", $msg);
+            $name = "user";
             $roomid = intval($roomid);
             $enterFlag = intval($enterFlag);
 
@@ -171,7 +175,7 @@ class SocketController extends Controller implements MessageComponentInterface {
                 // ユーザーが既にどこかのルームに入っている場合、エラーを返す。
                 if( isset($this->users[$from]) && ($this->users[$from]->getChatRoom() != null)){
                     $from->send("critical error : this user is alreadry in a room");
-                    echo("critical erroe : this user is already in a room\n");
+                    echo("critical error : this user is already in a room\n");
                     return ;
                 }
                 echo('registered user : ' . $name . "\n");
@@ -179,9 +183,11 @@ class SocketController extends Controller implements MessageComponentInterface {
                 $this->users[$from] = $user;
 
                 if( $this->rooms[$roomid]->addUser($this->users[$from]) ){
-                    $from->send("error : room is full");
+                    $from->send("0NG");
                     echo("error : room is full\n");
                 } else {
+                    echo("send OK\n");
+                    $from->send("0OK");
                     $this->users[$from]->enterRoom($this->rooms[$roomid]);
                 }
             } 
@@ -205,13 +211,14 @@ class SocketController extends Controller implements MessageComponentInterface {
                 echo("error : this user have not entered any room");
                 return ;
             }
-
+            $msg = substr($msg,1);
             $room = $this->users[$from]->getChatRoom();
             $target = $room->getElseUser($this->users[$from]);
             if( $target == null ){
                 return ;
             } else {
-                $target->getConn()->send($msg);
+                echo("send message from user\n");
+                $target->getConn()->send("1" . $msg);
             }
             echo("message sent\n");
         }
